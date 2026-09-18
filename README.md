@@ -1,107 +1,97 @@
-# IssueTracker (C++ CLI)
+# IssueTracker
 
-A blisteringly fast, git-native, terminal-based task and issue tracker. Built purely in C++20, it parses Markdown files into a Directed Acyclic Graph (DAG) to help you manage complex task dependencies without leaving your terminal.
+A simple, fast, and terminal-native issue tracker that lives right inside your Git repository. 
 
-## Philosophy
+Instead of switching to a browser to manage your tasks, IssueTracker lets you create, link, and close tasks directly from your terminal. Tasks are saved as standard Markdown files in your project, meaning your code and your issues always stay perfectly in sync.
 
-The tracker operates as a **thin, transparent Markdown layer** directly over your actual Git project repository. It does not use shadow repositories, background tracking databases, or proprietary APIs. Your tasks live natively inside your project in a `tasks/` directory as standard Markdown files. "Closing" a task is simply an edit to a file that gets organically committed alongside your code.
+## How It Works (Step-by-Step)
 
-## Features
+Imagine you are starting a new feature. Here is what your workflow looks like with IssueTracker:
 
-- **Git-Native Workflow:** Use `issue-tracker start <id>` to instantly checkout a `task/<id>` branch. Use `issue-tracker finish` to commit your work and close the issue automatically.
-- **Implicit Context Awareness:** Once you are branched into a task, commands like `edit`, `close`, `ls`, and `status` automatically understand your context. The `ls` command highlights your active task in green.
-- **DAG Engine:** Tasks are nodes. Dependencies are edges. Kahn's Algorithm ensures you never create a cycle and automatically determines the topologically sorted optimal order of execution.
-- **Markdown Native:** Tasks are just `.md` files with YAML frontmatter. 
-- **Prefix Matching:** Git-style prefix matching. You don't need to type `issue-tracker edit implement-directory-discovery-023a` — just `issue-tracker edit impl` and it instantly resolves.
+**1. Initialize the tracker in your project**
+```bash
+cd my-project
+issue-tracker init
+```
+*This creates a `tasks/` folder where your issues will live.*
+
+**2. Create a new task**
+```bash
+issue-tracker new "Build login page" -p 100 -t frontend
+```
+*This creates a markdown file. It gives it an ID, like `build-login-page-abcd`.*
+
+**3. Break it down into subtasks**
+```bash
+issue-tracker new "Design login UI" -p 200
+issue-tracker new "Write authentication API" -p 200
+
+# Tell the tracker that the login page depends on the UI and API tasks
+issue-tracker link build-login-page design-login
+issue-tracker link build-login-page write-auth
+```
+
+**4. See what you need to do**
+```bash
+# View your tasks in a clear, tree-like structure
+issue-tracker tree
+
+# Or ask the tracker for a step-by-step Execution Plan!
+# It will tell you exactly which tasks are ready to be worked on right now.
+issue-tracker plan
+```
+
+**5. Start working!**
+```bash
+# This automatically creates and checks out a git branch for your task!
+issue-tracker start design-login
+```
+
+**6. Finish the task**
+Once you're done coding, just type:
+```bash
+issue-tracker finish
+```
+*This will automatically mark the task as CLOSED, stage your code and task files, and open your editor so you can save the git commit!*
+
+---
+
+## Command Reference
+
+Here is a complete list of all available commands in IssueTracker:
+
+### Task Creation & Editing
+- `new <title> [-p priority] [-t tags] [-e]` : Create a new task. Use `-e` to immediately open it in your editor.
+- `edit [<id>]` : Open the task's Markdown file in your text editor. If you are already working on a task branch, you can just type `edit` without an ID.
+- `set <id> [-p priority] [-t tags]` : Quickly update a task's priority or tags without opening an editor.
+- `rm <id>` : Permanently delete a task and its Markdown file.
+
+### Linking Dependencies
+- `link <target_id> <dependency_id>` : Make the target task depend on the dependency task. The target task will be BLOCKED until the dependency is CLOSED.
+- `unlink <target_id> <dependency_id>` : Remove a dependency link.
+
+### Workflow & Git
+- `start <id>` : Start working on a task. This creates and switches to a Git branch named `task/<id>`.
+- `finish` : Closes the task you are currently working on, stages the changes, and prompts you for a git commit.
+- `close [<id>]` : Manually mark a task as CLOSED.
+- `open [<id>]` : Manually mark a task as OPEN.
+
+### Views & Dashboards
+- `ls` : List all open and blocked tasks. Highlights the task you are currently working on in green.
+- `ls --all` : List all tasks, including closed ones.
+- `tree` : Visually display your tasks and their dependencies as a branching forest.
+- `plan` : Print a strictly ordered execution plan, showing you exactly which tasks are unblocked and ready to be worked on.
+- `status` : Print a high-level project dashboard showing task completion percentages.
+
+### Project Setup
+- `init` : Initialize IssueTracker in the current directory (creates the `tasks/` folder).
+- `config <key> <value>` : Configure tracker settings (e.g., `issue-tracker config user.name "Alice"`, or `core.editor "vim"`).
 
 ## Installation
 
-We provide a fully automated script that compiles the binary via CMake, installs it to `/usr/local/bin`, and natively configures ZSH autocompletion.
-
 ```bash
-# Clone the repository
 git clone https://github.com/aikoschurmann/issue-tracker.git
 cd issue-tracker
-
-# Run the automated installer (requires sudo for /usr/local/bin)
 ./install.sh
-
-# Reload your shell for autocompletion
 source ~/.zshrc
 ```
-
-## Quick Start & Usage
-
-Initialize the tracker inside any existing Git repository:
-
-```bash
-cd ~/my-project
-issue-tracker init
-```
-*This creates a `tasks/` directory and `.trackerconfig`, and adds them to your `.gitignore`.*
-
-### Creating and Linking Tasks
-
-```bash
-# Create a new epic (Priority 500)
-issue-tracker new "Build Authentication System" -p 500
-
-# Create a dependency task
-issue-tracker new "Setup OAuth API" -p 200
-
-# Link them (Authentication depends on OAuth)
-issue-tracker link build-auth setup-oauth
-```
-
-### Git-Integrated Workflow
-
-When you are ready to start coding, the tracker automatically orchestrates your git branches:
-
-```bash
-# Checkout a new branch: task/setup-oauth-api-1234
-issue-tracker start setup-oauth
-
-# Look at your tasks. The active task is highlighted!
-issue-tracker ls
-
-# Edit the current task's markdown file in your editor (Implicit context)
-issue-tracker edit
-
-# Code... code... code...
-
-# Close the task, stage the code, and launch $EDITOR with a pre-filled git commit message!
-issue-tracker finish
-```
-
-### Dependency Management & Visualizations
-
-```bash
-# View your dependency tree (hoists shared dependencies cleanly)
-issue-tracker tree
-
-# View exactly what you should work on right now (topological sort)
-issue-tracker plan
-
-# Quick-edit metadata without opening an editor
-issue-tracker set setup-oauth -t "backend,api" -p 250
-
-# View project health dashboard
-issue-tracker status
-```
-
-## Configuration
-
-IssueTracker can be configured globally (`~/.trackerconfig`) or locally (`.trackerconfig` in your project root).
-
-Use the CLI to configure settings:
-```bash
-# Set your author name for Markdown stamping
-issue-tracker config user.name "Aiko Schurmann"
-
-# Set your preferred CLI text editor (defaults to $EDITOR then code)
-issue-tracker config core.editor "vim"
-```
-
-## Documentation
-
-Run `issue-tracker help` to see all available commands and detailed usage arguments.
