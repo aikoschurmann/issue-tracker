@@ -573,6 +573,13 @@ int CLI::handle_finish(std::span<const char *> args) {
 
 
 int CLI::handle_submit(std::span<const char *> args) {
+  if (std::system("git remote get-url origin > /dev/null 2>&1") != 0) {
+    std::cerr << colors::RED << "Error: " << colors::RESET << "No 'origin' remote configured.\n";
+    std::cerr << "To push this branch, add a remote repository first:\n";
+    std::cerr << "  git remote add origin <url>\n";
+    return 1;
+  }
+
   std::optional<std::string> id_opt = get_current_branch_task();
   
   std::string id = "";
