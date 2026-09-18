@@ -35,6 +35,7 @@ private:
   static std::string get_target_task_id(std::span<const char *> args);
   static int handle_start(std::span<const char *> args);
   static int handle_finish(std::span<const char *> args);
+  static int handle_submit(std::span<const char *> args);
   static int handle_config(std::span<const char *> args);
   static int handle_set(std::span<const char *> args);
 

@@ -535,9 +535,11 @@ int CLI::handle_finish(std::span<const char *> args) {
 
   modify_status(id, "CLOSED");
 
-  std::string msg = task.value().title + "\n\nCloses #" + id;
+  std::string msg = "[CLOSED] #" + id + ": ";
   if (!inline_msg.empty()) {
-      msg = task.value().title + "\n\n" + inline_msg + "\n\nCloses #" + id;
+      msg += inline_msg;
+  } else {
+      msg += task.value().title;
   }
 
   std::string template_path = "/tmp/tracker_commit_template.txt";
@@ -569,4 +571,38 @@ int CLI::handle_finish(std::span<const char *> args) {
   return 0;
 }
 
+
+int CLI::handle_submit(std::span<const char *> args) {
+  std::optional<std::string> id_opt = get_current_branch_task();
+  
+  std::string id = "";
+  if (args.size() > 0) {
+      id = resolve_task_id(args[0]);
+      if (id.empty()) return 1;
+  } else if (id_opt.has_value()) {
+      id = id_opt.value();
+  } else {
+      std::cerr << colors::RED << "Error: " << colors::RESET << "You are not on a task branch.\n";
+      std::cerr << "Run 'issue-tracker submit <id>' to specify a task, or switch to its branch.\n";
+      return 1;
+  }
+
+  std::string branch_name = "task/" + id;
+  std::cout << colors::CYAN << "Pushing " << branch_name << " to origin...\n" << colors::RESET;
+
+  std::string cmd = "git push -u origin " + escape_shell(branch_name);
+  int status = std::system(cmd.c_str());
+
+  if (status == 0) {
+      std::cout << colors::GREEN << "\nSuccess! " << colors::RESET << "Branch pushed to remote.\n";
+      std::cout << colors::GRAY << "Check the output above for your Pull Request link.\n" << colors::RESET;
+  } else {
+      std::cerr << colors::RED << "\nFailed to push branch.\n" << colors::RESET;
+      return 1;
+  }
+
+  return 0;
+}
+
 } // namespace tracker
+

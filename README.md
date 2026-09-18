@@ -72,7 +72,8 @@ Here is a complete list of all available commands in IssueTracker:
 
 ### Workflow & Git
 - `start <id>` : Start working on a task. This creates and switches to a Git branch named `task/<id>`.
-- `finish` : Closes the task you are currently working on, stages the changes, and prompts you for a git commit.
+- `finish` : Closes the task
+- `submit` : Pushes the current task branch to origin for a Pull Request you are currently working on, stages the changes, and prompts you for a git commit.
 - `close [<id>]` : Manually mark a task as CLOSED.
 - `open [<id>]` : Manually mark a task as OPEN.
 

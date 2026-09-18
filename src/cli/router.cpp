@@ -65,6 +65,8 @@ int CLI::run(std::span<const char *> args) {
     return handle_start(command_args);
   if (command == "finish")
     return handle_finish(command_args);
+  if (command == "submit")
+    return handle_submit(command_args);
   if (command == "status")
     return handle_status(command_args);
   if (command == "log")
