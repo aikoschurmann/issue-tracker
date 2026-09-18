@@ -501,9 +501,29 @@ int CLI::handle_start(std::span<const char *> args) {
 
 int CLI::handle_finish(std::span<const char *> args) {
 
-  std::string id = get_target_task_id(args);
+  std::string inline_msg = "";
+  bool open_editor = false;
+  
+  // Custom manual flag parsing for finish to extract -m and -e while leaving id intact
+  std::vector<std::string> clean_args;
+  for (size_t i = 0; i < args.size(); ++i) {
+    std::string arg = args[i];
+    if (arg == "-m" || arg == "--message") {
+      if (i + 1 < args.size()) inline_msg = args[++i];
+    } else if (arg == "-e" || arg == "--edit") {
+      open_editor = true;
+    } else {
+      clean_args.push_back(arg);
+    }
+  }
+  
+  // Reconstruct span for get_target_task_id
+  std::vector<const char*> span_args;
+  for (const auto& a : clean_args) span_args.push_back(a.c_str());
+
+  std::string id = get_target_task_id(std::span<const char*>(span_args.data(), span_args.size()));
   if (id.empty()) {
-    std::cerr << "Usage: <command> finish [<id>]\n";
+    std::cerr << "Usage: <command> finish [<id>] [-m <message>] [-e]\n";
     return 1;
   }
 
@@ -514,27 +534,38 @@ int CLI::handle_finish(std::span<const char *> args) {
   }
 
   modify_status(id, "CLOSED");
-  std::cout << colors::GRAY << "Closed task: " << colors::RESET << id << "\n";
 
   std::string msg = task.value().title + "\n\nCloses #" + id;
+  if (!inline_msg.empty()) {
+      msg = task.value().title + "\n\n" + inline_msg + "\n\nCloses #" + id;
+  }
 
   std::string template_path = "/tmp/tracker_commit_template.txt";
   std::ofstream out(template_path);
-  out << msg << "\n\n- \n";
+  out << msg << "\n";
+  if (open_editor && inline_msg.empty()) out << "\n- \n";
   out.close();
 
   std::string add_tasks = escape_shell((Config::root_dir / "tasks").string());
-  std::string add_config =
-      escape_shell((Config::root_dir / ".trackerconfig").string());
-  std::system(("git add -u > /dev/null 2>&1")); // Stage all modified tracked files
-  std::system(("git add " + add_tasks + " " + add_config + " > /dev/null 2>&1")
-                  .c_str());
+  std::string add_config = escape_shell((Config::root_dir / ".trackerconfig").string());
+  std::system(("git add -u > /dev/null 2>&1")); 
+  std::system(("git add " + add_tasks + " " + add_config + " > /dev/null 2>&1").c_str());
   std::cout << colors::GREEN << "Staged task and modified files.\n" << colors::RESET;
 
-  std::string cmd = "git commit -e -F " + template_path;
-  std::system(cmd.c_str());
-
+  std::string cmd = "git commit -F " + template_path;
+  if (open_editor) cmd = "git commit -e -F " + template_path;
+  
+  int status = std::system(cmd.c_str());
   std::filesystem::remove(template_path);
+  
+  if (status != 0) {
+      std::cerr << colors::RED << "Commit aborted. Reverting task to OPEN.\n" << colors::RESET;
+      modify_status(id, "OPEN");
+      std::system(("git reset HEAD " + add_tasks + " " + add_config + " > /dev/null 2>&1").c_str());
+      return 1;
+  }
+
+  std::cout << colors::GRAY << "Closed task: " << colors::RESET << id << "\n";
   return 0;
 }
 
