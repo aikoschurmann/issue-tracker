@@ -52,6 +52,13 @@ int CLI::handle_init(std::span<const char *> args) {
   }
   Config::root_dir = root;
 
+  // Ensure the repo has an initial commit so branching works natively
+  if (std::system("git rev-parse HEAD > /dev/null 2>&1") != 0) {
+      std::cout << colors::GRAY << "Initializing empty git repository with root commit...\n" << colors::RESET;
+      std::system("git add . > /dev/null 2>&1");
+      std::system("git commit -m \"Initial commit\" > /dev/null 2>&1");
+  }
+
   if (!created)
     std::cout << "Tracker is already initialized in this directory.\n";
   else

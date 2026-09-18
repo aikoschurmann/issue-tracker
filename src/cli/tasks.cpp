@@ -550,7 +550,7 @@ int CLI::handle_finish(std::span<const char *> args) {
 
   std::string add_tasks = escape_shell((Config::root_dir / "tasks").string());
   std::string add_config = escape_shell((Config::root_dir / ".trackerconfig").string());
-  std::system(("git add -u > /dev/null 2>&1")); 
+  std::system(("git add -A > /dev/null 2>&1")); 
   std::system(("git add " + add_tasks + " " + add_config + " > /dev/null 2>&1").c_str());
   std::cout << colors::GREEN << "Staged task and modified files.\n" << colors::RESET;
 
