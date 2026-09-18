@@ -516,7 +516,7 @@ int CLI::handle_finish(std::span<const char *> args) {
   modify_status(id, "CLOSED");
   std::cout << colors::GRAY << "Closed task: " << colors::RESET << id << "\n";
 
-  std::string msg = "Finish " + task.value().title + " (Closes #" + id + ")";
+  std::string msg = task.value().title + "\n\nCloses #" + id;
 
   std::string template_path = "/tmp/tracker_commit_template.txt";
   std::ofstream out(template_path);
@@ -526,11 +526,12 @@ int CLI::handle_finish(std::span<const char *> args) {
   std::string add_tasks = escape_shell((Config::root_dir / "tasks").string());
   std::string add_config =
       escape_shell((Config::root_dir / ".trackerconfig").string());
+  std::system(("git add -u > /dev/null 2>&1")); // Stage all modified tracked files
   std::system(("git add " + add_tasks + " " + add_config + " > /dev/null 2>&1")
                   .c_str());
-  std::cout << colors::GREEN << "Staged task files.\n" << colors::RESET;
+  std::cout << colors::GREEN << "Staged task and modified files.\n" << colors::RESET;
 
-  std::string cmd = "git commit -t " + template_path;
+  std::string cmd = "git commit -e -F " + template_path;
   std::system(cmd.c_str());
 
   std::filesystem::remove(template_path);
