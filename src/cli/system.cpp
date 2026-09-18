@@ -107,39 +107,37 @@ int CLI::handle_help(std::span<const char *> args) {
               << "\n";
   };
 
-  std::cout << colors::BOLD << "Task Management\n" << colors::RESET;
-  print_cmd("new", "<title>", "Create task (flags: -d, -p, -t, --deps, -e)");
-  print_cmd("edit", "<id>", "Open a task in $EDITOR (or core.editor)");
-  print_cmd("set", "<id> [flags]",
-            "Set metadata (flags: -p/--priority, -t/--tags)");
-  print_cmd("open", "<id>", "Mark a task as OPEN");
-  print_cmd("close", "<id>", "Mark a task as CLOSED");
-  print_cmd("rm", "<id> [-r]", "Delete a task (-r for recursive delete)");
-  print_cmd("link", "<t> <d>", "Make <t> depend on <d>");
+  std::cout << colors::BOLD << "Workflow & Git\n" << colors::RESET;
+  print_cmd("start", "<id>", "Start working on a task (checks out branch)");
+  print_cmd("finish", "[-m] [-e]", "Stage code, commit, and close current task");
+  print_cmd("submit", "", "Push branch to origin and generate PR link");
+  print_cmd("link", "<t> <d>", "Make task <t> depend on <d>");
   print_cmd("unlink", "<t> <d>", "Remove dependency <d> from <t>");
+  print_cmd("close", "[id]", "Mark a task as CLOSED");
+  print_cmd("open", "[id]", "Mark a task as OPEN");
   std::cout << "\n";
 
-  std::cout << colors::BOLD << "Views & Visualizations\n" << colors::RESET;
-  print_cmd("ls", "[-a|-c]",
-            "List open tasks (include closed with -a/--all/-c/--closed)");
-  print_cmd("tree", "[-a] [-d <n>]",
-            "Visualize DAG (-a for closed, -d/--depth <n> to truncate)");
-  print_cmd("requires", "<id>", "Visualize dependencies for a specific task");
-  print_cmd("status", "", "View project health dashboard and progress");
+  std::cout << colors::BOLD << "Task Creation & Editing\n" << colors::RESET;
+  print_cmd("new", "<title>", "Create task (flags: -p, -t, -e)");
+  print_cmd("edit", "[id]", "Open a task in $EDITOR");
+  print_cmd("set", "<id> [flags]", "Set metadata (flags: -p, -t)");
+  print_cmd("rm", "<id> [-r]", "Permanently delete a task");
+  std::cout << "\n";
+
+  std::cout << colors::BOLD << "Views & Dashboards\n" << colors::RESET;
+  print_cmd("ls", "[-a|-c]", "List open tasks");
+  print_cmd("tree", "[-a] [-d <n>]", "Visualize tasks as a branching forest");
   print_cmd("plan", "", "Topological sort of exactly what to do next");
+  print_cmd("status", "", "View project health dashboard and progress");
+  print_cmd("requires", "<id>", "Visualize dependencies for a specific task");
   print_cmd("bottleneck", "", "Critical Path Analysis (find worst blockers)");
   print_cmd("burndown", "", "ASCII velocity chart (last 14 days)");
   std::cout << "\n";
 
-  std::cout << colors::BOLD << "Config & System\n" << colors::RESET;
-  print_cmd("config", "<key> [val]",
-            "Get or set config (user.name, core.editor, ui.labels.unblocked)");
-  print_cmd("log", "[-n <count>|--all]",
-            "View history of background actions (default: 20)");
-  print_cmd("undo", "[target]",
-            "Undo the last action, or revert to a specific target");
-  print_cmd("reset", "<target>",
-            "Hard reset the task database to a specific point in time");
+  std::cout << colors::BOLD << "Project Setup\n" << colors::RESET;
+  print_cmd("init", "", "Initialize IssueTracker in the current directory");
+  print_cmd("config", "<key> [val]", "Get or set config (user.name, core.editor)");
+  print_cmd("log", "[-n <n>]", "View Git history for the tasks directory");
   std::cout << "\n";
 
   std::cout << colors::DIM
