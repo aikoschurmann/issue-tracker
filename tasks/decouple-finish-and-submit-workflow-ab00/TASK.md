@@ -1,5 +1,5 @@
 ---
-status: OPEN
+status: CLOSED
 priority: 600
 created_at: 2026-09-18T20:05:15Z
 author: aikoschurmann
