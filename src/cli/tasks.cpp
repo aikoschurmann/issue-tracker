@@ -579,6 +579,26 @@ int CLI::handle_finish(std::span<const char *> args) {
       std::cout << colors::GRAY << "Staged task metadata.\n" << colors::RESET;
   }
 
+  // PR Magic: If --pr is requested, ensure we are on a task branch
+  std::string original_branch = "";
+  std::string target_branch = "task/" + id;
+  if (do_pr) {
+      FILE *pipe = popen("git branch --show-current 2>/dev/null", "r");
+      char buffer[256];
+      if (pipe && fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+          original_branch = buffer;
+          if (!original_branch.empty() && original_branch.back() == '\n')
+              original_branch.pop_back();
+      }
+      if (pipe) pclose(pipe);
+
+      if (original_branch != target_branch) {
+          std::cout << colors::CYAN << "Moving work to new branch: " << target_branch << "\n" << colors::RESET;
+          std::string cmd_checkout = "git checkout -b " + escape_shell(target_branch) + " > /dev/null 2>&1 || git checkout " + escape_shell(target_branch) + " > /dev/null 2>&1";
+          std::system(cmd_checkout.c_str());
+      }
+  }
+
   std::string cmd = "git commit -F " + template_path;
   if (open_editor) cmd = "git commit -e -F " + template_path;
   
@@ -591,30 +611,24 @@ int CLI::handle_finish(std::span<const char *> args) {
       if (stage_tasks || stage_all) {
           std::system(("git reset HEAD " + add_tasks + " " + add_config + " > /dev/null 2>&1").c_str());
       }
+      // Revert branch change if we did it for PR
+      if (do_pr && original_branch != target_branch && !original_branch.empty()) {
+          std::system(("git checkout " + escape_shell(original_branch) + " > /dev/null 2>&1").c_str());
+      }
       return 1;
   }
 
   std::cout << colors::GREEN << "Closed task: " << colors::RESET << id << "\n";
 
   if (do_pr) {
-      // For PR, we need to ensure we are pushing something.
-      // Usually they'd use --pr on a branch, or it creates one.
-      // If we want to strictly mimic "finish --pr" pushing the current branch:
-      std::cout << colors::CYAN << "Pushing to origin...\n" << colors::RESET;
-      
-      FILE *pipe = popen("git branch --show-current 2>/dev/null", "r");
-      char buffer[256];
-      std::string current_branch;
-      if (pipe && fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-          current_branch = buffer;
-          if (!current_branch.empty() && current_branch.back() == '\n')
-              current_branch.pop_back();
-      }
-      if (pipe) pclose(pipe);
-      
-      if (!current_branch.empty()) {
-          std::string push_cmd = "git push -u origin " + escape_shell(current_branch);
-          std::system(push_cmd.c_str());
+      std::cout << colors::CYAN << "Pushing " << target_branch << " to origin to generate PR...\n" << colors::RESET;
+      std::string push_cmd = "git push -u origin " + escape_shell(target_branch);
+      std::system(push_cmd.c_str());
+
+      if (original_branch != target_branch && !original_branch.empty()) {
+          std::cout << colors::GRAY << "Dropping you back on " << original_branch << " to continue working.\n" << colors::RESET;
+          std::string checkout_back = "git checkout " + escape_shell(original_branch) + " > /dev/null 2>&1";
+          std::system(checkout_back.c_str());
       }
   }
 
