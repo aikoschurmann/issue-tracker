@@ -167,10 +167,14 @@ void CLI::print_task(const Task &task) {
 
   std::string p_str = "P" + std::to_string(task.priority);
   if (is_current) {
+    std::string current_branch = get_current_git_branch();
+    bool is_on_branch = (current_branch == "task/" + task.id);
+    std::string tag = is_on_branch ? "[ACTIVE BRANCH]" : "[ACTIVE CONTEXT]";
+    
     std::cout << colors::GREEN << "► " << colors::YELLOW
               << pad_truncate(p_str, 5) << colors::RESET;
     std::cout << colors::CYAN << task.id << colors::GREEN
-              << " [CURRENTLY ON BRANCH]" << colors::RESET << "\n";
+              << " " << tag << colors::RESET << "\n";
   } else {
     std::cout << "  " << colors::YELLOW << pad_truncate(p_str, 5)
               << colors::RESET;

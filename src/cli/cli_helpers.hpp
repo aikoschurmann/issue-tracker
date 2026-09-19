@@ -19,6 +19,19 @@ inline std::string iso8601_now() {
   return ss.str();
 }
 
+inline std::string get_current_git_branch() {
+  FILE *pipe = popen("git branch --show-current 2>/dev/null", "r");
+  if (!pipe) return "";
+  char buffer[256];
+  std::string branch;
+  if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+    branch = buffer;
+    if (!branch.empty() && branch.back() == '\n') branch.pop_back();
+  }
+  pclose(pipe);
+  return branch;
+}
+
 inline std::optional<std::string> get_active_task() {
   std::string active = Config::get("active_task", "");
   if (!active.empty()) {
