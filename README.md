@@ -1,98 +1,124 @@
 # IssueTracker
 
-A simple, fast, and terminal-native issue tracker that lives right inside your Git repository. 
+A lightweight, terminal-native project management tool embedded directly within your Git repository.
 
-Instead of switching to a browser to manage your tasks, IssueTracker lets you create, link, and close tasks directly from your terminal. Tasks are saved as standard Markdown files in your project, meaning your code and your issues always stay perfectly in sync.
+IssueTracker maintains project state using standard Markdown files and a Directed Acyclic Graph (DAG) for dependency resolution. It provides deep, opt-in Git integration without enforcing rigid workflows.
 
-## How It Works (Step-by-Step)
+## Core Philosophy
 
-Imagine you are starting a new feature. Here is what your workflow looks like with IssueTracker:
+1. **Data is Local**: Tasks are stored in a `tasks/` directory as Markdown files. Your project state travels with your repository.
+2. **Strict Dependencies**: Tasks are organized as a DAG. You define dependencies, and the engine calculates the exact topological order of execution and critical paths.
+3. **Decoupled Workspaces**: Git branching is strictly opt-in. You can set active task contexts while remaining on your primary branch, or explicitly request isolated feature branches.
+4. **Explicit Staging**: The tool never touches your Git staging area without explicit flags or configuration.
 
-**1. Initialize the tracker in your project**
+## Quick Start
+
+### 1. Initialization
+Initialize the tracker at the root of your repository:
 ```bash
-cd my-project
 issue-tracker init
 ```
-*This creates a `tasks/` folder where your issues will live.*
+*This creates the `tasks/` directory and updates your `.gitignore`.*
 
-**2. Create a new task**
+### 2. Task Creation & Dependency Graph
+Create tasks and establish blocking dependencies:
 ```bash
-issue-tracker new "Build login page" -p 100 -t frontend
-```
-*This creates a markdown file. It gives it an ID, like `build-login-page-abcd`.*
+issue-tracker new "Implement authentication API" -p 200
+issue-tracker new "Design login interface" -p 100
 
-**3. Break it down into subtasks**
-```bash
-issue-tracker new "Design login UI" -p 200
-issue-tracker new "Write authentication API" -p 200
-
-# Tell the tracker that the login page depends on the UI and API tasks
-issue-tracker link build-login-page design-login
-issue-tracker link build-login-page write-auth
+# Block the interface task until the API is completed
+issue-tracker link design-login-interface implement-authentication-api
 ```
 
-**4. See what you need to do**
+### 3. Execution Planning
+Evaluate project state and determine the next actionable task:
 ```bash
-# View your tasks in a clear, tree-like structure
+# View the dependency tree
 issue-tracker tree
 
-# Or ask the tracker for a step-by-step Execution Plan!
-# It will tell you exactly which tasks are ready to be worked on right now.
+# Output a strictly ordered topological execution plan
 issue-tracker plan
 ```
 
-**5. Start working!**
+### 4. Development Context
+Set your development context to an unblocked task.
 ```bash
-# This automatically creates and checks out a git branch for your task!
-issue-tracker start design-login
+# Set context (remains on current branch)
+issue-tracker start implement-authentication-api
+
+# Alternative: Create and checkout an isolated feature branch
+issue-tracker start implement-authentication-api -b
 ```
 
-**6. Finish the task**
-Once you're done coding, just type:
+### 5. Atomic Closure
+Once development is complete, close the task. 
 ```bash
-issue-tracker finish
+# Close task, stage all changes, and commit
+issue-tracker finish -a -m "Implemented JWT authentication"
+
+# Close task, stage changes, commit, and push as a Pull Request
+issue-tracker finish -a --pr
 ```
-*This will automatically mark the task as CLOSED, stage your code and task files, and open your editor so you can save the git commit!*
+*Note: If `--pr` is invoked on the main branch, the tool will dynamically isolate your staged changes to a new feature branch, push to origin, and restore your previous working tree.*
 
 ---
 
 ## Command Reference
 
-Here is a complete list of all available commands in IssueTracker:
-
-### Task Creation & Editing
-- `new <title> [-p priority] [-t tags] [-e]` : Create a new task. Use `-e` to immediately open it in your editor.
-- `edit [<id>]` : Open the task's Markdown file in your text editor. If you are already working on a task branch, you can just type `edit` without an ID.
-- `set <id> [-p priority] [-t tags]` : Quickly update a task's priority or tags without opening an editor.
-- `rm <id>` : Permanently delete a task and its Markdown file.
-
-### Linking Dependencies
-- `link <target_id> <dependency_id>` : Make the target task depend on the dependency task. The target task will be BLOCKED until the dependency is CLOSED.
-- `unlink <target_id> <dependency_id>` : Remove a dependency link.
-
 ### Workflow & Git
-- `start <id>` : Start working on a task. This creates and switches to a Git branch named `task/<id>`.
-- `finish` : Closes the task
-- `submit` : Pushes the current task branch to origin for a Pull Request you are currently working on, stages the changes, and prompts you for a git commit.
-- `close [<id>]` : Manually mark a task as CLOSED.
-- `open [<id>]` : Manually mark a task as OPEN.
+| Command | Description |
+|---|---|
+| `start <id> [-b]` | Set active task context. Use `-b` to checkout a new branch (`task/<id>`). |
+| `finish [id] [flags]` | Mark task as CLOSED and create a Git commit. |
+| `submit [id]` | Alias for `finish --pr`. |
+| `close [id]` | Mark a task CLOSED without generating a Git commit. |
+| `open [id]` | Mark a task OPEN. |
+| `link <t> <d>` | Add dependency `<d>` to target task `<t>`. |
+| `unlink <t> <d>` | Remove dependency `<d>` from target `<t>`. |
 
-### Views & Dashboards
-- `ls` : List all open and blocked tasks. Highlights the task you are currently working on in green.
-- `ls --all` : List all tasks, including closed ones.
-- `tree` : Visually display your tasks and their dependencies as a branching forest.
-- `plan` : Print a strictly ordered execution plan, showing you exactly which tasks are unblocked and ready to be worked on.
-- `status` : Print a high-level project dashboard showing task completion percentages.
+**Finish Flags:**
+- `-a, --stage-all` : Stage all repository changes before committing.
+- `--stage-tasks` : Stage only the `tasks/` directory metadata.
+- `-m <msg>` : Provide an inline commit message.
+- `-e, --edit` : Open `$EDITOR` to write the commit message.
+- `--pr` : Push the resulting commit to origin.
 
-### Project Setup
-- `init` : Initialize IssueTracker in the current directory (creates the `tasks/` folder).
-- `config <key> <value>` : Configure tracker settings (e.g., `issue-tracker config user.name "Alice"`, or `core.editor "vim"`).
+### Task Management
+| Command | Description |
+|---|---|
+| `new <title> [flags]`| Create a new task. |
+| `edit [id]` | Open the Markdown file in `$EDITOR`. |
+| `set <id> [flags]` | Modify task metadata without editing the file. |
+| `rm <id> [-r]` | Permanently delete a task. Use `-r` to recursively delete subtasks. |
 
-## Installation
+**Creation/Modification Flags:**
+- `-d <desc>` : Description.
+- `-p <pri>` : Priority integer (0-1000).
+- `-t <tags>` : Comma-separated list of tags.
+- `--deps <ids>` : Comma-separated list of blocking dependencies.
 
-```bash
-git clone https://github.com/aikoschurmann/issue-tracker.git
-cd issue-tracker
-./install.sh
-source ~/.zshrc
-```
+### Views & Analysis
+| Command | Description |
+|---|---|
+| `ls [-a] [-c]` | List tasks. Differentiates between `[ACTIVE CONTEXT]` and `[ACTIVE BRANCH]`. |
+| `tree [-a] [-d <n>]` | Visualize the dependency DAG. |
+| `plan` | Print a topological sort of immediately actionable tasks. |
+| `bottleneck` | Critical Path Analysis identifying the most blocking tasks. |
+| `requires <id>` | Visualize the specific dependency sub-tree for a task. |
+| `burndown` | ASCII velocity chart plotting closures over the last 14 days. |
+| `status` | High-level project completion dashboard. |
+
+### Configuration & Setup
+| Command | Description |
+|---|---|
+| `init` | Initialize tracker infrastructure. |
+| `config [<k> <v>]` | View or modify tracker settings. |
+| `log [-n <num>]` | Output Git log filtered to the `tasks/` directory. |
+
+## Configuration
+Executing `issue-tracker config` without arguments outputs a table of all available variables and their current values.
+
+Notable configuration targets:
+- `git.autostage_tasks` (Default: `false`) : Automatically stages metadata when running `finish`.
+- `git.autostage_code` (Default: `false`) : Automatically stages all code (`git add -A`) when running `finish`.
+- `core.editor` (Default: `$EDITOR`) : The executable invoked by `edit`.
