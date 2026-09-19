@@ -37,6 +37,9 @@ _issue_tracker() {
 
     if (( CURRENT == 2 )); then
         local -a cmds=(
+            'start:Mark a task as active'
+            'finish:Close a task and drop a Git commit'
+            'submit:Push branch to origin (finish --pr)'
             'new:Create task'
             'edit:Open a task'
             'set:Set metadata'
@@ -52,10 +55,9 @@ _issue_tracker() {
             'bottleneck:Critical path analysis'
             'burndown:ASCII velocity chart'
             'plan:Topological sort of exactly what to do next'
+            'init:Initialize tracker'
             'config:Get or set config'
             'log:View history of background actions'
-            'undo:Undo the last action'
-            'reset:Hard reset the task database'
             'help:Show help message'
         )
         _describe -t commands "issue-tracker command" cmds
@@ -64,18 +66,28 @@ _issue_tracker() {
 
     if [[ "$words[$CURRENT]" == -* ]]; then
         case $cmd in
+            start)
+                local -a flags=('-b:Create branch' '--branch:Create branch')
+                _describe -t flags "start flags" flags
+                return
+                ;;
+            finish)
+                local -a flags=('-m:Commit message' '--message:Commit message' '-a:Stage all' '--stage-all:Stage all' '--stage-tasks:Stage tasks metadata' '-e:Open editor' '--edit:Open editor' '--pr:Create Pull Request')
+                _describe -t flags "finish flags" flags
+                return
+                ;;
             new)
                 local -a flags=('-d:Description' '--desc:Description' '-p:Priority' '--priority:Priority' '-t:Tags' '--tags:Tags' '--deps:Dependencies' '-e:Open editor' '--edit:Open editor')
                 _describe -t flags "new flags" flags
                 return
                 ;;
             tree)
-                local -a flags=('-a:Include closed' '--all:Include closed' '-c:Include closed' '--closed:Include closed' '-d:Max depth' '--depth:Max depth')
+                local -a flags=('-a:Include closed' '--all:Include closed' '-d:Max depth' '--depth:Max depth')
                 _describe -t flags "tree flags" flags
                 return
                 ;;
             ls)
-                local -a flags=('-a:Include closed' '--all:Include closed' '-c:Include closed' '--closed:Include closed')
+                local -a flags=('-a:Include closed' '--all:Include closed' '-c:Only closed' '--closed:Only closed')
                 _describe -t flags "ls flags" flags
                 return
                 ;;
@@ -98,7 +110,7 @@ _issue_tracker() {
     fi
 
     case $cmd in
-        edit|open|close|rm|requires|set)
+        start|finish|submit|edit|open|close|rm|requires|set)
             __issue_tracker_tasks
             ;;
         link|unlink)
@@ -106,7 +118,7 @@ _issue_tracker() {
             ;;
         config)
             if (( CURRENT == 3 )); then
-                local -a keys=('user.name' 'core.editor' 'ui.labels.unblocked')
+                local -a keys=('user.name' 'core.editor' 'git.autostage_tasks' 'git.autostage_code')
                 compadd -a keys
             fi
             ;;
