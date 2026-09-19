@@ -122,52 +122,87 @@ int CLI::handle_log(std::span<const char *> args) {
 }
 
 int CLI::handle_help(std::span<const char *> args) {
-  print_header("Issue Tracker CLI");
-  std::cout << "Usage: <command> [args]\n\n";
+  if (!args.empty()) {
+    std::string target = args[0];
+    print_header("Help: " + target);
+    if (target == "start") {
+      std::cout << "Usage: issue-tracker start <id> [-b | --branch]\n\n";
+      std::cout << "  Sets the active task in your workspace.\n";
+      std::cout << "  -b, --branch    Create and checkout a new Git branch (task/<id>)\n\n";
+    } else if (target == "finish") {
+      std::cout << "Usage: issue-tracker finish [id] [flags]\n\n";
+      std::cout << "  Closes the task and creates an atomic Git commit.\n";
+      std::cout << "  -m <msg>        Inline commit message\n";
+      std::cout << "  -a, --stage-all Stage all code changes before committing\n";
+      std::cout << "  --stage-tasks   Stage only tracker metadata\n";
+      std::cout << "  -e, --edit      Open editor for commit message\n";
+      std::cout << "  --pr            Push current branch to origin after committing\n\n";
+    } else if (target == "new") {
+      std::cout << "Usage: issue-tracker new <title> [flags]\n\n";
+      std::cout << "  -d <desc>       Set description\n";
+      std::cout << "  -p <pri>        Set priority (0-1000)\n";
+      std::cout << "  -t <tags>       Set comma-separated tags\n";
+      std::cout << "  --deps <ids>    Set comma-separated dependencies\n";
+      std::cout << "  -e, --edit      Open task in editor immediately\n\n";
+    } else if (target == "ls") {
+      std::cout << "Usage: issue-tracker ls [flags]\n\n";
+      std::cout << "  -a, --all       Include closed tasks\n";
+      std::cout << "  -c, --closed    Show ONLY closed tasks\n\n";
+    } else if (target == "tree") {
+      std::cout << "Usage: issue-tracker tree [flags]\n\n";
+      std::cout << "  -a, --all       Include closed tasks in tree\n";
+      std::cout << "  -d <n>          Truncate tree depth to <n>\n\n";
+    } else if (target == "set") {
+      std::cout << "Usage: issue-tracker set <id> [flags]\n\n";
+      std::cout << "  -p <pri>        Update priority\n";
+      std::cout << "  -t <tags>       Update tags\n\n";
+    } else if (target == "rm") {
+      std::cout << "Usage: issue-tracker rm <id> [flags]\n\n";
+      std::cout << "  -r              Delete recursively (including all subtasks)\n\n";
+    } else {
+      std::cout << "No detailed flags for '" << target << "'. Just run: issue-tracker " << target << " <args>\n\n";
+    }
+    return 0;
+  }
 
-  auto print_cmd = [](const char *cmd, const char *arg, const char *desc) {
-    std::cout << "  " << colors::GREEN << std::left << std::setw(10) << cmd
-              << colors::RESET << std::left << std::setw(20) << arg << desc
-              << "\n";
+  print_header("Issue Tracker");
+  std::cout << "Usage: issue-tracker <command> [args] [flags]\n\n";
+
+  auto print_cmd = [](const char *cmd, const char *desc) {
+    std::cout << "  " << colors::GREEN << std::left << std::setw(12) << cmd
+              << colors::RESET << desc << "\n";
   };
 
-  std::cout << colors::BOLD << "Workflow & Git (Opt-in)\n" << colors::RESET;
-  print_cmd("start", "<id> [-b]", "Mark task active (-b to branch)");
-  print_cmd("finish", "[id] [-a] [--pr]", "Close and commit (no autostaging by default)");
-  print_cmd("submit", "[id]", "Push branch to origin (Alias for finish --pr)");
-  print_cmd("link", "<t> <d>", "Make task <t> depend on <d>");
-  print_cmd("unlink", "<t> <d>", "Remove dependency <d> from <t>");
-  print_cmd("close", "[id]", "Mark a task as CLOSED");
-  print_cmd("open", "[id]", "Mark a task as OPEN");
-  std::cout << "\n";
+  std::cout << colors::BOLD << "WORKFLOW\n" << colors::RESET;
+  print_cmd("start", "Set active task or switch branch");
+  print_cmd("finish", "Close task and create commit");
+  print_cmd("submit", "Push branch and create PR");
+  print_cmd("close", "Mark task CLOSED");
+  print_cmd("open", "Mark task OPEN");
+  print_cmd("link", "Manage dependencies");
+  print_cmd("unlink", "Remove dependencies");
+  
+  std::cout << "\n" << colors::BOLD << "TASKS\n" << colors::RESET;
+  print_cmd("new", "Create a new task");
+  print_cmd("edit", "Edit task markdown");
+  print_cmd("set", "Quickly update priority/tags");
+  print_cmd("rm", "Delete a task");
 
-  std::cout << colors::BOLD << "Task Creation & Editing\n" << colors::RESET;
-  print_cmd("new", "<title>", "Create task (flags: -p, -t, -e)");
-  print_cmd("edit", "[id]", "Open a task in $EDITOR");
-  print_cmd("set", "<id> [flags]", "Set metadata (flags: -p, -t)");
-  print_cmd("rm", "<id> [-r]", "Permanently delete a task");
-  std::cout << "\n";
+  std::cout << "\n" << colors::BOLD << "VIEWS\n" << colors::RESET;
+  print_cmd("ls", "List tasks");
+  print_cmd("tree", "Visualize DAG");
+  print_cmd("plan", "Show next optimal steps");
+  print_cmd("status", "Project dashboard");
+  print_cmd("bottleneck", "Critical Path Analysis");
+  print_cmd("requires", "View specific dependencies");
+  print_cmd("burndown", "Velocity chart");
 
-  std::cout << colors::BOLD << "Views & Dashboards\n" << colors::RESET;
-  print_cmd("ls", "[-a|-c]", "List open tasks");
-  print_cmd("tree", "[-a] [-d <n>]", "Visualize tasks as a branching forest");
-  print_cmd("plan", "", "Topological sort of exactly what to do next");
-  print_cmd("status", "", "View project health dashboard and progress");
-  print_cmd("requires", "<id>", "Visualize dependencies for a specific task");
-  print_cmd("bottleneck", "", "Critical Path Analysis (find worst blockers)");
-  print_cmd("burndown", "", "ASCII velocity chart (last 14 days)");
-  std::cout << "\n";
+  std::cout << "\n" << colors::BOLD << "SETUP\n" << colors::RESET;
+  print_cmd("init", "Initialize Tracker");
+  print_cmd("config", "Manage settings");
+  print_cmd("log", "View task history");
 
-  std::cout << colors::BOLD << "Project Setup\n" << colors::RESET;
-  print_cmd("init", "", "Initialize IssueTracker in the current directory");
-  print_cmd("config", "<key> [val]", "Get or set config (user.name, core.editor)");
-  print_cmd("log", "[-n <n>]", "View Git history for the tasks directory");
-  std::cout << "\n";
-
-  std::cout << colors::DIM
-            << "Note: <id> arguments support Git-style prefix matching. You "
-               "only need to type the first few letters of a Task ID."
-            << colors::RESET << "\n\n";
+  std::cout << "\n" << colors::DIM << "Run 'issue-tracker help <command>' for detailed flags.\n" << colors::RESET;
   return 0;
 }
 
