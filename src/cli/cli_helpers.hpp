@@ -7,6 +7,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include "tracker/config.hpp"
 
 namespace tracker {
 
@@ -18,13 +19,13 @@ inline std::string iso8601_now() {
   return ss.str();
 }
 
-inline std::optional<std::string> get_current_branch_task() {
-  static std::optional<std::string> cached_branch;
-  static bool has_run = false;
-  if (has_run)
-    return cached_branch;
-  has_run = true;
-
+inline std::optional<std::string> get_active_task() {
+  std::string active = Config::get("active_task", "");
+  if (!active.empty()) {
+    return active;
+  }
+  
+  // Fallback to git branch for backwards compatibility (temporary)
   FILE *pipe = popen("git branch --show-current 2>/dev/null", "r");
   if (!pipe)
     return std::nullopt;
@@ -39,9 +40,9 @@ inline std::optional<std::string> get_current_branch_task() {
 
   std::string prefix = "task/";
   if (branch.find(prefix) == 0) {
-    cached_branch = branch.substr(prefix.length());
+    return branch.substr(prefix.length());
   }
-  return cached_branch;
+  return std::nullopt;
 }
 
 inline std::string pad_truncate(const std::string &str, size_t width) {

@@ -162,7 +162,7 @@ static void print_task_meta(const Task &task,
   std::cout << colors::RESET << "\n";
 }
 void CLI::print_task(const Task &task) {
-  std::optional<std::string> current = get_current_branch_task();
+  std::optional<std::string> current = get_active_task();
   bool is_current = current.has_value() && current.value() == task.id;
 
   std::string p_str = "P" + std::to_string(task.priority);

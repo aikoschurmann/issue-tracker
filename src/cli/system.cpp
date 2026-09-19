@@ -114,10 +114,10 @@ int CLI::handle_help(std::span<const char *> args) {
               << "\n";
   };
 
-  std::cout << colors::BOLD << "Workflow & Git\n" << colors::RESET;
-  print_cmd("start", "<id>", "Start working on a task (checks out branch)");
-  print_cmd("finish", "[-m] [-e]", "Stage code, commit, and close current task");
-  print_cmd("submit", "", "Push branch to origin and generate PR link");
+  std::cout << colors::BOLD << "Workflow & Git (Opt-in)\n" << colors::RESET;
+  print_cmd("start", "<id> [-b]", "Mark task active (-b to branch)");
+  print_cmd("finish", "[id] [-a] [--pr]", "Close and commit (no autostaging by default)");
+  print_cmd("submit", "[id]", "Push branch to origin (Alias for finish --pr)");
   print_cmd("link", "<t> <d>", "Make task <t> depend on <d>");
   print_cmd("unlink", "<t> <d>", "Remove dependency <d> from <t>");
   print_cmd("close", "[id]", "Mark a task as CLOSED");
@@ -210,7 +210,7 @@ std::string CLI::get_target_task_id(std::span<const char *> args) {
   if (!args.empty()) {
     return resolve_task_id(std::string(args[0]));
   }
-  std::optional<std::string> implicit_id = get_current_branch_task();
+  std::optional<std::string> implicit_id = get_active_task();
   if (implicit_id.has_value()) {
     return resolve_task_id(implicit_id.value());
   }

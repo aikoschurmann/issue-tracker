@@ -500,11 +500,12 @@ int CLI::handle_start(std::span<const char *> args) {
 }
 
 int CLI::handle_finish(std::span<const char *> args) {
-
   std::string inline_msg = "";
   bool open_editor = false;
+  bool stage_all = Config::get("git.autostage_code", "false") == "true";
+  bool stage_tasks = Config::get("git.autostage_tasks", "false") == "true";
+  bool do_pr = false;
   
-  // Custom manual flag parsing for finish to extract -m and -e while leaving id intact
   std::vector<std::string> clean_args;
   for (size_t i = 0; i < args.size(); ++i) {
     std::string arg = args[i];
@@ -512,18 +513,23 @@ int CLI::handle_finish(std::span<const char *> args) {
       if (i + 1 < args.size()) inline_msg = args[++i];
     } else if (arg == "-e" || arg == "--edit") {
       open_editor = true;
+    } else if (arg == "-a" || arg == "--stage-all") {
+      stage_all = true;
+    } else if (arg == "--stage-tasks") {
+      stage_tasks = true;
+    } else if (arg == "--pr") {
+      do_pr = true;
     } else {
       clean_args.push_back(arg);
     }
   }
   
-  // Reconstruct span for get_target_task_id
   std::vector<const char*> span_args;
   for (const auto& a : clean_args) span_args.push_back(a.c_str());
 
   std::string id = get_target_task_id(std::span<const char*>(span_args.data(), span_args.size()));
   if (id.empty()) {
-    std::cerr << "Usage: <command> finish [<id>] [-m <message>] [-e]\n";
+    std::cerr << "Usage: <command> finish [<id>] [-m <message>] [-e] [-a] [--stage-tasks] [--pr]\n";
     return 1;
   }
 
@@ -550,9 +556,14 @@ int CLI::handle_finish(std::span<const char *> args) {
 
   std::string add_tasks = escape_shell((Config::root_dir / "tasks").string());
   std::string add_config = escape_shell((Config::root_dir / ".trackerconfig").string());
-  std::system(("git add -A > /dev/null 2>&1")); 
-  std::system(("git add " + add_tasks + " " + add_config + " > /dev/null 2>&1").c_str());
-  std::cout << colors::GREEN << "Staged task and modified files.\n" << colors::RESET;
+  
+  if (stage_all) {
+      std::system(("git add -A > /dev/null 2>&1"));
+      std::cout << colors::GRAY << "Staged all code changes.\n" << colors::RESET;
+  } else if (stage_tasks) {
+      std::system(("git add " + add_tasks + " " + add_config + " > /dev/null 2>&1").c_str());
+      std::cout << colors::GRAY << "Staged task metadata.\n" << colors::RESET;
+  }
 
   std::string cmd = "git commit -F " + template_path;
   if (open_editor) cmd = "git commit -e -F " + template_path;
@@ -561,16 +572,45 @@ int CLI::handle_finish(std::span<const char *> args) {
   std::filesystem::remove(template_path);
   
   if (status != 0) {
-      std::cerr << colors::RED << "Commit aborted. Reverting task to OPEN.\n" << colors::RESET;
+      std::cerr << colors::RED << "Commit aborted or nothing to commit. Reverting task to OPEN.\n" << colors::RESET;
       modify_status(id, "OPEN");
-      std::system(("git reset HEAD " + add_tasks + " " + add_config + " > /dev/null 2>&1").c_str());
+      if (stage_tasks || stage_all) {
+          std::system(("git reset HEAD " + add_tasks + " " + add_config + " > /dev/null 2>&1").c_str());
+      }
       return 1;
   }
 
-  std::cout << colors::GRAY << "Closed task: " << colors::RESET << id << "\n";
+  std::cout << colors::GREEN << "Closed task: " << colors::RESET << id << "\n";
+
+  if (do_pr) {
+      // For PR, we need to ensure we are pushing something.
+      // Usually they'd use --pr on a branch, or it creates one.
+      // If we want to strictly mimic "finish --pr" pushing the current branch:
+      std::cout << colors::CYAN << "Pushing to origin...\n" << colors::RESET;
+      
+      FILE *pipe = popen("git branch --show-current 2>/dev/null", "r");
+      char buffer[256];
+      std::string current_branch;
+      if (pipe && fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+          current_branch = buffer;
+          if (!current_branch.empty() && current_branch.back() == '\n')
+              current_branch.pop_back();
+      }
+      if (pipe) pclose(pipe);
+      
+      if (!current_branch.empty()) {
+          std::string push_cmd = "git push -u origin " + escape_shell(current_branch);
+          std::system(push_cmd.c_str());
+      }
+  }
+
+  // Clear active task if it was this one
+  if (Config::get("active_task", "") == id) {
+      Config::set("active_task", "");
+  }
+
   return 0;
 }
-
 
 int CLI::handle_submit(std::span<const char *> args) {
   if (std::system("git remote get-url origin > /dev/null 2>&1") != 0) {
@@ -580,7 +620,7 @@ int CLI::handle_submit(std::span<const char *> args) {
     return 1;
   }
 
-  std::optional<std::string> id_opt = get_current_branch_task();
+  std::optional<std::string> id_opt = get_active_task();
   
   std::string id = "";
   if (args.size() > 0) {
