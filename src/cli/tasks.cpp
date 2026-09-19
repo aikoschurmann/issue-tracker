@@ -472,30 +472,44 @@ void CLI::recursive_rm(const std::string &id,
 }
 
 int CLI::handle_start(std::span<const char *> args) {
-  std::string id = get_target_task_id(args);
+  bool do_branch = false;
+  std::vector<std::string> clean_args;
+  
+  for (size_t i = 0; i < args.size(); ++i) {
+    std::string s(args[i]);
+    if (s == "-b" || s == "--branch") {
+      do_branch = true;
+    } else {
+      clean_args.push_back(s);
+    }
+  }
+
+  std::vector<const char*> span_args;
+  for (const auto& a : clean_args) span_args.push_back(a.c_str());
+
+  std::string id = get_target_task_id(std::span<const char*>(span_args.data(), span_args.size()));
   if (id.empty()) {
-    std::cerr << "Usage: <command> start <id>\n";
+    std::cerr << "Usage: <command> start [<id>] [-b|--branch]\n";
     return 1;
   }
 
-  std::string branch_name = "task/" + id;
-  std::string cmd =
-      "git checkout -b " + escape_shell(branch_name) + " > /dev/null 2>&1";
-
-  if (std::system(cmd.c_str()) == 0) {
-    std::cout << colors::CYAN << "Switched to branch " << branch_name << ".\n"
-              << colors::RESET;
-    std::cout << "Happy coding!\n";
-  } else {
-    cmd = "git checkout " + escape_shell(branch_name) + " > /dev/null 2>&1";
-    if (std::system(cmd.c_str()) == 0) {
-      std::cout << colors::CYAN << "Switched to branch " << branch_name << ".\n"
-                << colors::RESET;
-    } else {
-      std::cerr << "Failed to checkout branch " << branch_name << ".\n";
-      return 1;
-    }
+  std::optional<Task> task = Engine::get_task_by_id(id);
+  if (!task.has_value()) {
+    std::cerr << "Task not found.\n";
+    return 1;
   }
+
+  Config::set("active_task", id);
+
+  if (do_branch) {
+    std::string branch_name = "task/" + id;
+    std::string cmd = "git checkout -b " + escape_shell(branch_name) + " > /dev/null 2>&1 || git checkout " + escape_shell(branch_name) + " > /dev/null 2>&1";
+    std::system(cmd.c_str());
+    std::cout << colors::CYAN << "Switched to branch " << branch_name << ".\n" << colors::RESET;
+  } else {
+    std::cout << colors::CYAN << "Context set to task " << id << ".\n" << colors::RESET;
+  }
+  std::cout << "Happy coding!\n";
   return 0;
 }
 

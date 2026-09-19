@@ -67,10 +67,27 @@ int CLI::handle_init(std::span<const char *> args) {
 }
 
 int CLI::handle_config(std::span<const char *> args) {
-  if (args.empty()) {
-    std::cerr << "Usage: <command> config <key> [value]\n";
-    return 1;
+  if (args.empty() || (args.size() == 1 && std::string(args[0]) == "list")) {
+    auto print_conf = [](const char* key, const char* def, const char* desc) {
+        std::string val = Config::get(key, def);
+        std::cout << "  " << colors::CYAN << std::left << std::setw(25) << key << colors::RESET
+                  << std::left << std::setw(15) << val
+                  << colors::GRAY << desc << colors::RESET << "\n";
+    };
+    std::cout << colors::BOLD << "Configuration Settings\n" << colors::RESET;
+    std::cout << "  " << std::left << std::setw(25) << "KEY"
+              << std::left << std::setw(15) << "VALUE"
+              << "DESCRIPTION\n";
+    std::cout << "  " << std::string(80, '-') << "\n";
+    print_conf("git.autostage_tasks", "false", "Automatically stage tasks/ metadata on finish");
+    print_conf("git.autostage_code", "false", "Automatically stage all code (-A) on finish");
+    print_conf("core.editor", "$EDITOR", "Text editor for task descriptions");
+    print_conf("user.name", "auto", "Author name for tasks");
+    print_conf("active_task", "none", "Currently active task context");
+    std::cout << "\nUsage: issue-tracker config <key> <value>\n";
+    return 0;
   }
+
   std::string key = args[0];
   if (args.size() > 1) {
     std::string value = args[1];
